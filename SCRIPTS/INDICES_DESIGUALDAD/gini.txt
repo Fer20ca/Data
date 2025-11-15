@@ -1,0 +1,123 @@
+*Definir directorio
+cd "C:\Users\FERNANDO\Documents\PI_INEQUIDAD\scripts_data\data\inputs\sumaria_enaho\sumarias_dta"
+
+* Definir una variable para el año (por ejemplo)
+local year = 2007
+local input_filename = "sumaria-" + "`year'" + ".dta"
+*Abrir sumaria
+use "`input_filename'", replace
+
+*Gasto per capita mensual
+gen gpcm = (gashog2d / (mieperho*12))
+
+*Ingreso per capita mensual
+gen ipcm = (inghog1d / (mieperho*12))
+
+*Factor de expansion poblacional
+gen fac2 = factor07*mieperho
+
+*Regiones (25)
+gen dpto= real(substr(ubigeo,1,2))
+replace dpto=15 if (dpto==7) /*se esta recodificando al callao como parte de Lima */
+label define dpto 1"Amazonas" 2"Ancash" 3"Apurimac" 4"Arequipa" 5"Ayacucho" 6"Cajamarca" 8"Cusco" 9"Huancavelica" 10"Huanuco" 11"Ica" /*
+*/12"Junin" 13"La Libertad" 14"Lambayeque" 15"Lima" 16"Loreto" 17"Madre de Dios" 18"Moquegua" 19"Pasco" 20"Piura" 21"Puno" 22"San Martin" /*
+*/23"Tacna" 24"Tumbes" 25"Ucayali" 
+lab val dpto dpto 
+
+*Regiones INCORE
+gen dpto_incore=real(substr(ubigeo,1,2))
+replace dpto_incore=15 if real(substr(ubigeo,1,2))==7
+replace dpto_incore=26 if dpto_incore==15 & real(substr(ubigeo,1,4))>=1502 & real(substr(ubigeo,1,4))<1599
+label define dpto_incore 1"Amazonas" 2"Ancash" 3"Apurimac" 4"Arequipa" /*
+*/5"Ayacucho" 6"Cajamarca" 8"Cusco" 9"Huancavelica" 10"Huanuco" 11"Ica" /*
+*/12"Junin" 13"La Libertad" 14"Lambayeque" 15"Lima*" 26"Lima provincias" /*
+*/16"Loreto" 17"Madre de Dios" 18"Moquegua" 19"Pasco" 20"Piura" 21"Puno" /*
+*/22"San Martin" 23"Tacna" 24"Tumbes" 25"Ucayali" 
+label values dpto_incore dpto_incore
+
+*Limas y Callao
+gen limareg=1 if real(substr(ubigeo,1,4))==1501
+replace limareg=2 if real(substr(ubigeo,1,2))==7
+replace limareg=3 if real(substr(ubigeo,1,4))>=1502 & real(substr(ubigeo,1,4))<1599
+label define limareg 1 "Lima Metropolitana" 2 "Prov Const. Callao" 3 "Region Lima"
+label val limareg limareg
+
+*Indice de Gini de ingresos, aca tmbn tengo los de deciles
+ssc install ineqdec0
+ssc install inequal7
+/*qdec0 ipcm [aw=fac2], byg(dpto_incore)
+
+ineqdec0 ipcm [aw=fac2], byg(limareg)
+
+levelsof dpto_incore, local(departments) 
+foreach dept of local departments {
+    inequal7 ipcm [aweight=fac2] if dpto_incore == `dept'
+}
+*/
+
+ineqdec0 ipcm [aw=fac2], byg(dpto)
+
+* Generamos una lista de resultados y agregamos los valores sin borrar los datos previos
+
+
+gen str20 n_dep = ""
+
+replace n_dep = "Amazonas"       in 1
+replace n_dep = "Ancash"         in 2
+replace n_dep = "Apurimac"       in 3
+replace n_dep = "Arequipa"       in 4
+replace n_dep = "Ayacucho"       in 5
+replace n_dep = "Cajamarca"      in 6
+replace n_dep = "Callao"         in 7   
+replace n_dep = "Cusco"          in 8
+replace n_dep = "Huancavelica"   in 9
+replace n_dep = "Huanuco"        in 10
+replace n_dep = "Ica"            in 11
+replace n_dep = "Junin"          in 12
+replace n_dep = "La Libertad"    in 13
+replace n_dep = "Lambayeque"     in 14
+replace n_dep = "Lima"           in 15
+replace n_dep = "Loreto"         in 16
+replace n_dep = "Madre de Dios"  in 17
+replace n_dep = "Moquegua"       in 18
+replace n_dep = "Pasco"          in 19
+replace n_dep = "Piura"          in 20
+replace n_dep = "Puno"           in 21
+replace n_dep = "San Martin"     in 22
+replace n_dep = "Tacna"          in 23
+replace n_dep = "Tumbes"         in 24
+replace n_dep = "Ucayali"        in 25
+
+gen gini = .
+gen theil = .
+
+gen gini_g = .
+gen theil_g = .
+gen ratio_g = .
+
+replace gini_g = r(gini)      in 1
+replace theil_g = r(ge2)      in 1
+replace ratio_g = r(p90p10)       in 1
+* Asignamos los valores de Gini y Theil a las regiones
+forvalues k = 1/25 {
+    if `k' != 7 {
+        quietly replace gini = r(gini_`k') if _n == `k'
+        quietly replace theil = r(ge2_`k') if _n == `k'
+    }
+}
+
+	
+scalar gini_g = r(gini)
+scalar theil_g = r(ge2)
+scalar ratio_g = r(p90p10)
+
+
+
+
+* Crear el nombre del archivo usando el valor de la variable
+local output_filename = "gini_" + "`year'" + ".xlsx"
+
+* Exportar los datos a un archivo Excel con el nombre formado dinámicamente
+
+*cd "C:\Users\FERNANDO\Documents\PI_INEQUIDAD\scripts_data\data\outputs\gini"
+*	export excel n_dep gini theil gini_g theil_g ratio_g using "`output_filename'", firstrow(variables) replace
